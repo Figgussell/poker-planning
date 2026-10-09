@@ -1,10 +1,10 @@
-import { databaseErrorResponse, localDemoErrorResponse, noStoreJson } from "@/lib/api-response";
+import { databaseErrorResponse, localDemoErrorResponse, noStoreJson, withApiErrorHandling } from "@/lib/api-response";
 import { getAppUserId } from "@/lib/local-demo-auth";
 import { createLocalRoom, isLocalDemoEnabled } from "@/lib/local-demo";
 import { getRoomSnapshot } from "@/lib/room-snapshot";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   const body = await request.json().catch(() => null);
   if (!body || typeof body.roomName !== "string" || typeof body.displayName !== "string") {
     return noStoreJson({ error: "Enter a room name and your name." }, 400);
@@ -36,3 +36,5 @@ export async function POST(request: Request) {
 
   return noStoreJson({ roomId: created.room_id, inviteToken: created.invite_token, snapshot });
 }
+
+export const POST = withApiErrorHandling(handlePOST);

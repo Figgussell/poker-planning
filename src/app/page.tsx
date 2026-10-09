@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { ArrowUpRight, Layers3, LoaderCircle, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { readApiResponse } from "@/lib/read-api-response";
 
 export default function Home() {
   const router = useRouter();
@@ -19,16 +20,14 @@ export default function Home() {
     setError("");
     try {
       const session = await fetch("/api/session", { method: "POST" });
-      const sessionData = await session.json();
-      if (!session.ok) throw new Error(sessionData.error ?? "Session could not be started.");
+      const sessionData = await readApiResponse(session, "Session could not be started.");
       setLocalMode(sessionData.mode === "local-demo");
       const response = await fetch("/api/rooms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ roomName, displayName }),
       });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error ?? "Room could not be created.");
+      const result = await readApiResponse<{ roomId: string; inviteToken: string }>(response, "Room could not be created.");
       router.push(`/room/${result.roomId}?invite=${encodeURIComponent(result.inviteToken)}`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Room could not be created.");

@@ -68,6 +68,7 @@ The Playwright acceptance test uses three isolated browser contexts for the host
 
 ## Project documents
 
+- `AGENTS.md`: Codex project instructions, code map, security invariants, and verification commands
 - `SPEC.md`: product and security requirements
 - `PLAN.md`: staged implementation and verification plan
 - `supabase/migrations/`: versioned schema, RPCs, and grants

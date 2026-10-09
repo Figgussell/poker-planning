@@ -1,6 +1,21 @@
 import type { PostgrestError } from "@supabase/supabase-js";
 import { LocalDemoError } from "@/lib/local-demo";
 
+export class ApiConfigurationError extends Error {}
+
+export function withApiErrorHandling<Args extends unknown[]>(handler: (...args: Args) => Promise<Response>) {
+  return async (...args: Args): Promise<Response> => {
+    try {
+      return await handler(...args);
+    } catch (error) {
+      if (error instanceof ApiConfigurationError) {
+        return noStoreJson({ error: error.message }, 503);
+      }
+      return noStoreJson({ error: "The request could not be completed. Please try again." }, 500);
+    }
+  };
+}
+
 export function noStoreJson(data: unknown, status = 200) {
   return Response.json(data, {
     status,

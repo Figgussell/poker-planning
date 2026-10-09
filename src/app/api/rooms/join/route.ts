@@ -1,10 +1,10 @@
-import { databaseErrorResponse, localDemoErrorResponse, noStoreJson } from "@/lib/api-response";
+import { databaseErrorResponse, localDemoErrorResponse, noStoreJson, withApiErrorHandling } from "@/lib/api-response";
 import { getAppUserId } from "@/lib/local-demo-auth";
 import { isLocalDemoEnabled, joinLocalRoom } from "@/lib/local-demo";
 import { getRoomSnapshot } from "@/lib/room-snapshot";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   const body = await request.json().catch(() => null);
   if (!body || typeof body.inviteToken !== "string" || typeof body.displayName !== "string") {
     return noStoreJson({ error: "An invitation and display name are required." }, 400);
@@ -34,3 +34,5 @@ export async function POST(request: Request) {
   if (snapshotError) return databaseErrorResponse(snapshotError);
   return noStoreJson({ roomId, snapshot });
 }
+
+export const POST = withApiErrorHandling(handlePOST);

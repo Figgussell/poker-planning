@@ -16,6 +16,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import Link from "next/link";
+import { readApiResponse } from "@/lib/read-api-response";
 
 type Vote = { display_name: string; value: number | string | null; cannot_estimate: boolean };
 type Round = {
@@ -44,9 +45,7 @@ type PageState = "loading" | "join" | "ready" | "error";
 
 async function fetchRoom(roomId: string) {
   const response = await fetch(`/api/rooms/${roomId}`, { cache: "no-store" });
-  const result = await response.json();
-  if (!response.ok) throw new Error(result.error ?? "Room could not be loaded.");
-  return result as Snapshot;
+  return readApiResponse<Snapshot>(response, "Room could not be loaded.");
 }
 
 function estimateTotalPreview(development: string, testing: string) {
@@ -79,8 +78,7 @@ export default function RoomClient({ roomId, inviteToken }: { roomId: string; in
       setPageState("loading");
       try {
         const session = await fetch("/api/session", { method: "POST" });
-        const sessionData = await session.json();
-        if (!session.ok) throw new Error(sessionData.error ?? "Session could not be started.");
+        const sessionData = await readApiResponse(session, "Session could not be started.");
         setLocalMode(sessionData.mode === "local-demo");
         const state = await fetchRoom(roomId);
         if (!cancelled) {
@@ -119,8 +117,7 @@ export default function RoomClient({ roomId, inviteToken }: { roomId: string; in
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ inviteToken, displayName }),
       });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error ?? "Could not join this room.");
+      const result = await readApiResponse<{ snapshot: Snapshot }>(response, "Could not join this room.");
       setSnapshot(result.snapshot as Snapshot);
       setPageState("ready");
     } catch (cause) {
@@ -139,8 +136,7 @@ export default function RoomClient({ roomId, inviteToken }: { roomId: string; in
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, ...values }),
       });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error ?? "Action could not be completed.");
+      const result = await readApiResponse<Snapshot>(response, "Action could not be completed.");
       setSnapshot(result as Snapshot);
       if (action === "vote") setVoteValue("");
       if (action === "save-result") {

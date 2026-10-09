@@ -1,4 +1,4 @@
-import { databaseErrorResponse, localDemoErrorResponse, noStoreJson } from "@/lib/api-response";
+import { databaseErrorResponse, localDemoErrorResponse, noStoreJson, withApiErrorHandling } from "@/lib/api-response";
 import { getAppUserId } from "@/lib/local-demo-auth";
 import { getLocalSnapshot, isLocalDemoEnabled, runLocalAction } from "@/lib/local-demo";
 import { getRoomSnapshot } from "@/lib/room-snapshot";
@@ -16,7 +16,7 @@ type ActionBody = {
 
 const estimatePattern = /^(?:\d{1,16}(?:\.\d{1,8})?|\.\d{1,8})$/;
 
-export async function GET(_request: Request, context: { params: Promise<{ roomId: string }> }) {
+async function handleGET(_request: Request, context: { params: Promise<{ roomId: string }> }) {
   const { roomId } = await context.params;
   if (isLocalDemoEnabled()) {
     try {
@@ -36,7 +36,7 @@ export async function GET(_request: Request, context: { params: Promise<{ roomId
   return noStoreJson(data);
 }
 
-export async function POST(request: Request, context: { params: Promise<{ roomId: string }> }) {
+async function handlePOST(request: Request, context: { params: Promise<{ roomId: string }> }) {
   const { roomId } = await context.params;
   const body = (await request.json().catch(() => null)) as ActionBody | null;
   if (!body || typeof body.action !== "string") return noStoreJson({ error: "Choose an action." }, 400);
@@ -105,3 +105,6 @@ export async function POST(request: Request, context: { params: Promise<{ roomId
   if (snapshotError) return databaseErrorResponse(snapshotError);
   return noStoreJson(data);
 }
+
+export const POST = withApiErrorHandling(handlePOST);
+export const GET = withApiErrorHandling(handleGET);
