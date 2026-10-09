@@ -8,6 +8,14 @@ const secretPath = path.join(process.cwd(), "data", "local-demo.secret");
 let secretPromise: Promise<Buffer> | undefined;
 
 async function getSecret() {
+  if (process.env.NODE_ENV === "production") {
+    const secret = process.env.APP_SESSION_SECRET;
+    if (!secret || Buffer.byteLength(secret, "utf8") < 32) {
+      throw new Error("APP_SESSION_SECRET must contain at least 32 characters.");
+    }
+    return Buffer.from(secret, "utf8");
+  }
+
   secretPromise ??= (async () => {
     await mkdir(path.dirname(secretPath), { recursive: true });
     try {
@@ -31,7 +39,7 @@ function sign(userId: string, secret: Buffer) {
   return createHmac("sha256", secret).update(userId).digest("hex");
 }
 
-export async function getLocalUserId() {
+export async function getAppUserId() {
   const value = (await cookies()).get(cookieName)?.value;
   if (!value) return null;
   const [userId, signature] = value.split(".");
@@ -42,7 +50,7 @@ export async function getLocalUserId() {
   return userId;
 }
 
-export async function createLocalSession() {
+export async function createAppSession() {
   const userId = randomUUID();
   const cookieStore = await cookies();
   cookieStore.set(cookieName, `${userId}.${sign(userId, await getSecret())}`, {

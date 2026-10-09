@@ -1,11 +1,11 @@
 import { expect, test } from "@playwright/test";
 
 const supabaseReady = Boolean(
-  process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
 test("host and two participants estimate privately, reveal, save, and recover", async ({ browser }) => {
-  test.skip(!supabaseReady, "Configure Supabase and anonymous sign-in to run the three-session acceptance test.");
+  test.skip(!supabaseReady, "Configure the Supabase URL and server-only service-role key to run the three-session acceptance test.");
 
   const hostContext = await browser.newContext();
   const firstContext = await browser.newContext();

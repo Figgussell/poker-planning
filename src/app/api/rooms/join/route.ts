@@ -1,8 +1,8 @@
 import { databaseErrorResponse, localDemoErrorResponse, noStoreJson } from "@/lib/api-response";
-import { getLocalUserId } from "@/lib/local-demo-auth";
+import { getAppUserId } from "@/lib/local-demo-auth";
 import { isLocalDemoEnabled, joinLocalRoom } from "@/lib/local-demo";
 import { getRoomSnapshot } from "@/lib/room-snapshot";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
@@ -12,7 +12,7 @@ export async function POST(request: Request) {
 
   if (isLocalDemoEnabled()) {
     try {
-      const userId = await getLocalUserId();
+      const userId = await getAppUserId();
       if (!userId) return noStoreJson({ error: "Start a local session first." }, 401);
       return noStoreJson(await joinLocalRoom(userId, body.inviteToken, body.displayName));
     } catch (error) {
@@ -20,14 +20,17 @@ export async function POST(request: Request) {
     }
   }
 
-  const supabase = await createSupabaseServerClient();
+  const userId = await getAppUserId();
+  if (!userId) return noStoreJson({ error: "Start a session first." }, 401);
+  const supabase = createSupabaseAdminClient();
   const { data: roomId, error } = await supabase.rpc("join_room", {
+    p_user_id: userId,
     p_invite_token: body.inviteToken,
     p_display_name: body.displayName,
   });
   if (error) return databaseErrorResponse(error);
 
-  const { data: snapshot, error: snapshotError } = await getRoomSnapshot(supabase, roomId);
+  const { data: snapshot, error: snapshotError } = await getRoomSnapshot(supabase, userId, roomId);
   if (snapshotError) return databaseErrorResponse(snapshotError);
   return noStoreJson({ roomId, snapshot });
 }

@@ -30,7 +30,9 @@ Build a small, persistent planning-poker web application where a host creates a 
 - Keep votes private before reveal at every boundary: server-rendered/API responses, Supabase Realtime payloads, and direct database access through RLS.
 - Before reveal, clients receive participant identity and a boolean `has_voted` status only. A participant's own vote may be returned only to that participant.
 - Reveal must be an atomic, host-authorized server operation. The server must not broadcast vote values before the round is marked revealed.
-- Use Supabase Auth for identity and server-side authorization. Invitation tokens are unguessable and grant room-join capability, not host permissions.
+- Use random application session IDs in HMAC-signed, HTTP-only cookies; Supabase Auth and Anonymous Sign-Ins are not required.
+- Keep `SUPABASE_SERVICE_ROLE_KEY` server-only. Database RPC wrappers accept only requests made with that key and enforce membership/host roles using the server-verified session identity.
+- Invitation tokens are unguessable and grant room-join capability, not host permissions.
 
 ## User experience
 
@@ -44,7 +46,7 @@ Build a small, persistent planning-poker web application where a host creates a 
 - Next.js App Router, TypeScript, Tailwind CSS, and Supabase.
 - Database schema and RLS policies are versioned as SQL migrations.
 - Configuration is documented in `.env.example`; local setup and verification are documented in `README.md`.
-- Never expose the Supabase service-role key to browser code.
+- Never expose the Supabase service-role key or session-signing secret to browser code.
 
 ## Acceptance criteria
 
@@ -59,6 +61,6 @@ Build a small, persistent planning-poker web application where a host creates a 
 ## Verification approach
 
 - Typecheck, lint, and production build the application.
-- Apply the SQL migration to a Supabase project and verify the policies with separate authenticated users.
-- Run a browser test in three independent contexts: host, participant A, and participant B. Inspect network responses and Realtime events before reveal, exercise voting and reveal, reload each context, and confirm unauthorized host actions fail.
+- Apply all SQL migrations to a Supabase project and verify RPC authorization using distinct signed application sessions.
+- Run a browser test in three independent contexts: host, participant A, and participant B. Inspect network responses before reveal, exercise voting and reveal, reload each context, and confirm unauthorized host actions fail.
 - If Supabase credentials are unavailable, keep the integration runnable and report the live database/browser acceptance checks as environment-blocked rather than claiming they passed.
