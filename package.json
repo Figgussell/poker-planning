@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "next dev",
     "dev:local": "LOCAL_DEMO_MODE=1 NEXT_PUBLIC_LOCAL_DEMO_MODE=1 next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
