@@ -11,7 +11,7 @@ Planning-poker rooms for independent team estimates, private voting, shared reve
 
 ## Requirements
 
-- Node.js 20.9 or newer
+- Node.js 22 or newer
 - A Supabase project, or Docker and the Supabase CLI for local development
 - Chromium for the Playwright acceptance test
 
