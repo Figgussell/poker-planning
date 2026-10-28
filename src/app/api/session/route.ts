@@ -5,7 +5,7 @@ import { isLocalDemoEnabled } from "@/lib/local-demo";
 export async function POST() {
   try {
     const userId = await getAppUserId() ?? await createAppSession();
-    return noStoreJson({ userId, mode: isLocalDemoEnabled() ? "local-demo" : "supabase" });
+    return noStoreJson({ userId, mode: isLocalDemoEnabled() ? "local-demo" : "postgresql" });
   } catch (error) {
     return noStoreJson({ error: error instanceof Error ? error.message : "Could not create an application session." }, 503);
   }

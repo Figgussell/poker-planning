@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { DatabaseClient } from "@/lib/database";
 
 type Estimate = {
   round_id: string;
@@ -35,10 +35,10 @@ function addSavedEstimate<T extends RoundShape>(round: T, estimate?: Estimate) {
   };
 }
 
-export async function getRoomSnapshot(supabase: SupabaseClient, userId: string, roomId: string) {
+export async function getRoomSnapshot(database: DatabaseClient, userId: string, roomId: string) {
   const [snapshotResult, estimatesResult] = await Promise.all([
-    supabase.rpc("get_room_snapshot", { p_user_id: userId, p_room_id: roomId }),
-    supabase.rpc("get_saved_round_estimates", { p_user_id: userId, p_room_id: roomId }),
+    database.rpc("get_room_snapshot", { p_user_id: userId, p_room_id: roomId }),
+    database.rpc("get_saved_round_estimates", { p_user_id: userId, p_room_id: roomId }),
   ]);
   if (snapshotResult.error) return { data: null, error: snapshotResult.error };
   if (estimatesResult.error) return { data: null, error: estimatesResult.error };

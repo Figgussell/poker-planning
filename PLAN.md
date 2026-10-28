@@ -3,15 +3,15 @@
 ## Stage 1: Application foundation
 
 - Initialize Next.js App Router with TypeScript and Tailwind CSS.
-- Add environment validation, Supabase browser/server clients, and a responsive visual foundation.
+- Add environment validation, a server-only PostgreSQL pool, and a responsive visual foundation.
 - Verify dependencies install and the application typechecks/builds.
 
 ## Stage 2: Secure persistence
 
-- Add Supabase migration for rooms, memberships, tasks, rounds, and votes.
+- Add PostgreSQL migration for rooms, memberships, tasks, rounds, and votes.
 - Add RLS and database functions that enforce host-only mutations and prevent unrevealed vote values from being selected or broadcast to other users.
-- Add `.env.example` and document Supabase setup.
-- Verify migration syntax and application types; use local Supabase tooling if available.
+- Add `.env.example` and document PostgreSQL setup.
+- Verify migration syntax and application types; use local PostgreSQL tooling if available.
 
 ## Stage 3: Room and round workflows
 
@@ -34,4 +34,4 @@
 
 ## Completion criteria
 
-The acceptance criteria in `SPEC.md` pass, or any check blocked by missing Supabase credentials/runtime is explicitly identified with reproducible instructions.
+The acceptance criteria in `SPEC.md` pass, or any check blocked by missing PostgreSQL connection settings/runtime is explicitly identified with reproducible instructions.

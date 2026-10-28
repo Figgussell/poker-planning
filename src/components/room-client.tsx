@@ -265,11 +265,11 @@ export default function RoomClient({ roomId, inviteToken }: { roomId: string; in
           {task && round?.status === "voting" && (
             <div className="vote-area">
               <div className="section-rule"><span>YOUR ESTIMATE</span><span className="rule-line" /><span className="private-label"><EyeOff size={13} /> PRIVATE</span></div>
-              {round.my_vote ? <p className="submitted-note"><Check size={15} /> Your vote: <strong>{round.my_vote.cannot_estimate ? "Cannot estimate" : round.my_vote.value}</strong>. It stays private until the host reveals.</p> : <p className="vote-prompt">Choose a number that reflects the work, not the room.</p>}
+              {round.my_vote ? <p className="submitted-note"><Check size={15} /> Your vote: <strong>{round.my_vote.cannot_estimate ? "Cannot estimate" : round.my_vote.value}</strong>. You can change it until the host reveals.</p> : <p className="vote-prompt">Choose a number that reflects the work, not the room.</p>}
               <form className="vote-form" onSubmit={(event) => { event.preventDefault(); void act("vote", { value: voteValue }); }}>
                 <label className="visually-hidden" htmlFor="estimate">Your estimate</label>
                 <input className="estimate-input" id="estimate" inputMode="decimal" max="9999999999999999.99999999" min="0" onChange={(event) => setVoteValue(event.target.value)} placeholder="0" step="any" type="number" value={voteValue} />
-                <button className="button button-primary vote-submit" disabled={pending === "vote" || voteValue === ""} type="submit">{pending === "vote" ? <LoaderCircle className="spin" size={16} /> : <Send size={15} />} Vote</button>
+                <button className="button button-primary vote-submit" disabled={pending === "vote" || voteValue === ""} type="submit">{pending === "vote" ? <LoaderCircle className="spin" size={16} /> : <Send size={15} />} {round.my_vote ? "Update vote" : "Vote"}</button>
               </form>
               <button className="cannot-button" disabled={pending === "vote"} onClick={() => void act("vote", { cannotEstimate: true })} type="button"><CircleHelp size={15} /> Cannot estimate</button>
               {isHost && <div className="host-reveal-row"><span>Everyone has made their estimate?</span><button className="button button-primary" disabled={pending === "reveal"} onClick={() => void act("reveal")} type="button">{pending === "reveal" ? <LoaderCircle className="spin" size={16} /> : <Eye size={15} />} Reveal votes</button></div>}

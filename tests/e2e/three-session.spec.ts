@@ -1,11 +1,8 @@
 import { expect, test } from "@playwright/test";
 
-const supabaseReady = Boolean(
-  process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY,
-);
 
 test("host and two participants estimate privately, reveal, save, and recover", async ({ browser }) => {
-  test.skip(!supabaseReady, "Configure the Supabase URL and server-only service-role key to run the three-session acceptance test.");
+
 
   const hostContext = await browser.newContext();
   const firstContext = await browser.newContext();
@@ -58,6 +55,20 @@ test("host and two participants estimate privately, reveal, save, and recover", 
     expect(JSON.stringify(secondVote)).toContain("8.5");
     expect(JSON.stringify(secondVote)).not.toContain("3.25");
 
+    // Changing between numeric and Cannot estimate remains private and survives reload.
+    await first.getByRole("button", { name: "Cannot estimate", exact: true }).click();
+    await expect(first.getByText(/Your vote: Cannot estimate/)).toBeVisible();
+    await first.reload();
+    await expect(first.getByText(/Your vote: Cannot estimate/)).toBeVisible();
+    await first.getByLabel("Your estimate").fill("4.75");
+    await first.getByRole("button", { name: "Update vote", exact: true }).click();
+    await expect(first.getByText(/Your vote: 4\.75/)).toBeVisible();
+    const changed = await secondContext.request.get(`${apiOrigin}/api/rooms/${roomId}`);
+    expect(JSON.stringify(await changed.json())).not.toContain("4.75");
+    await first.getByLabel("Your estimate").fill("3.25");
+    await first.getByRole("button", { name: "Update vote", exact: true }).click();
+    await expect(first.getByText(/Your vote: 3\.25/)).toBeVisible();
+
     const [hostRead, firstRead, secondRead] = await Promise.all([
       hostContext.request.get(`${apiOrigin}/api/rooms/${roomId}`),
       firstContext.request.get(`${apiOrigin}/api/rooms/${roomId}`),
@@ -86,8 +97,13 @@ test("host and two participants estimate privately, reveal, save, and recover", 
 
     await host.getByRole("button", { name: "Reveal votes" }).click();
     await expect(first.getByText("REVEALED VOTES")).toBeVisible({ timeout: 10_000 });
-    await expect(second.getByText("3.25")).toBeVisible();
-    await expect(first.getByText("8.5")).toBeVisible();
+    await expect(second.locator(".result-tile").getByText("3.25", { exact: true })).toBeVisible();
+    await expect(first.locator(".result-tile").getByText("8.5", { exact: true })).toBeVisible();
+
+    const closedVote = await firstContext.request.post(`${apiOrigin}/api/rooms/${roomId}`, {
+      data: { action: "vote", value: "99" },
+    });
+    expect(closedVote.status()).toBe(409);
 
     await host.getByLabel("DEVELOPMENT").fill("4.25");
     await host.getByLabel("TESTING").fill("1.25");
@@ -97,18 +113,18 @@ test("host and two participants estimate privately, reveal, save, and recover", 
     await host.getByRole("button", { name: "Start next round" }).click();
 
     await Promise.all([host.reload(), first.reload(), second.reload()]);
-    await expect(host.getByText("ROUND 02")).toBeVisible();
-    await expect(first.getByText("ROUND 02")).toBeVisible();
-    await expect(second.getByText("ROUND 02")).toBeVisible();
+    await expect(host.locator(".round-pill").getByText("ROUND 02", { exact: true })).toBeVisible();
+    await expect(first.locator(".round-pill").getByText("ROUND 02", { exact: true })).toBeVisible();
+    await expect(second.locator(".round-pill").getByText("ROUND 02", { exact: true })).toBeVisible();
     await expect(first.getByText("Your vote: 3.25")).toHaveCount(0);
-    await expect(first.getByText("Paginate the activity feed")).toBeVisible();
+    await expect(first.getByRole("heading", { name: "Paginate the activity feed" })).toBeVisible();
 
     await second.getByRole("button", { name: "Cannot estimate" }).click();
     await expect(second.getByText(/Your vote: Cannot estimate/)).toBeVisible();
     await host.getByRole("button", { name: "Reveal votes" }).click();
-    await expect(host.getByText("Cannot estimate")).toBeVisible();
+    await expect(host.locator(".result-tile").getByText("Cannot estimate", { exact: true })).toBeVisible();
     await host.getByRole("button", { name: "Mark task unestimated" }).click();
-    await expect(host.getByText("Unestimated")).toBeVisible();
+    await expect(host.getByText("Unestimated", { exact: true }).first()).toBeVisible();
 
     await host.getByLabel("NEXT TASK").fill("Rate-limit retries");
     await host.getByRole("button", { name: "Add task" }).click();
