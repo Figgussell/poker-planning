@@ -2,7 +2,7 @@ import { databaseErrorResponse, localDemoErrorResponse, noStoreJson, withApiErro
 import { getAppUserId } from "@/lib/local-demo-auth";
 import { isLocalDemoEnabled, joinLocalRoom } from "@/lib/local-demo";
 import { getRoomSnapshot } from "@/lib/room-snapshot";
-import { createDatabaseClient } from "@/lib/database";
+import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 async function handlePOST(request: Request) {
   const body = await request.json().catch(() => null);
@@ -22,15 +22,15 @@ async function handlePOST(request: Request) {
 
   const userId = await getAppUserId();
   if (!userId) return noStoreJson({ error: "Start a session first." }, 401);
-  const database = createDatabaseClient();
-  const { data: roomId, error } = await database.rpc("join_room", {
+  const supabase = createSupabaseAdminClient();
+  const { data: roomId, error } = await supabase.rpc("join_room", {
     p_user_id: userId,
     p_invite_token: body.inviteToken,
     p_display_name: body.displayName,
   });
   if (error) return databaseErrorResponse(error);
 
-  const { data: snapshot, error: snapshotError } = await getRoomSnapshot(database, userId, roomId);
+  const { data: snapshot, error: snapshotError } = await getRoomSnapshot(supabase, userId, roomId);
   if (snapshotError) return databaseErrorResponse(snapshotError);
   return noStoreJson({ roomId, snapshot });
 }

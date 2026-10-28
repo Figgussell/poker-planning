@@ -1,62 +1,47 @@
 # Poker Planning
 
-Planning-poker rooms with private voting, shared reveals, and persistent history.
+Planning-poker rooms for independent team estimates, private voting, shared reveals, and persistent round history.
 
 ## Stack
 
-Next.js App Router, React, TypeScript, Tailwind CSS 4, and PostgreSQL. The app connects directly to PostgreSQL with a server-only `pg` connection pool. Supabase is no longer required.
+- Next.js App Router, React, and TypeScript
+- Tailwind CSS 4 with a product-specific responsive CSS layer
+- Supabase Postgres with server-side role-checked RPCs and app-issued sessions
+- Playwright for the three-browser acceptance flow
 
-## Server setup
+## Requirements
 
-Use Node.js 22 or newer and PostgreSQL 16 or newer with the `pgcrypto` extension available. Install PostgreSQL through your server's package manager and keep it listening on localhost when the app runs on the same server.
+- Node.js 22 or newer
+- A Supabase project, or Docker and the Supabase CLI for local development
+- Chromium for the Playwright acceptance test
 
-1. As the PostgreSQL administrator, create separate migration and runtime logins. Use your own strong passwords:
+## Supabase setup
 
-   ```sql
-   CREATE ROLE poker_owner LOGIN PASSWORD 'replace-owner-password' CREATEROLE;
-   CREATE ROLE poker_runtime LOGIN PASSWORD 'replace-runtime-password' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
-   CREATE DATABASE poker_planning OWNER poker_owner;
-   ```
-
-2. Run `npm install`. Copy `.env.example` to `.env.local`. Set `DATABASE_ADMIN_URL` to the owner connection and `DATABASE_URL` to the runtime connection. Set `APP_SESSION_SECRET` to at least 32 random characters, retaining the same value across deploys. These values are server-only.
-3. Run `npm run db:migrate`. This loads `.env.local`, applies versioned SQL in `db/migrations/` transactionally, and records checksums. The initial migration creates the `poker_app` permission role, so the migration owner needs `CREATEROLE`. Use a dedicated database; this migration restricts the public schema.
-4. As the PostgreSQL administrator, grant runtime membership and enable inheritance:
-
-   ```sql
-   GRANT poker_app TO poker_runtime;
-   ALTER ROLE poker_runtime INHERIT;
-   ALTER ROLE poker_owner NOCREATEROLE;
-   ```
-
-   Keep ownership with `poker_owner`. Do not grant the runtime login ownership, superuser, table access, or membership in privileged roles. Future migrations run as the owner; creating the application role is needed only once per PostgreSQL cluster. For additional installations on the same cluster, use a separate cluster or adapt the role name before applying the baseline.
-
-5. Run `npm run build` and `npm start` under your process manager. Put an HTTPS reverse proxy in front of the app; production session cookies require HTTPS. Provision database backups and test restoring them. Keep port 5432 restricted to the application server; for connections across servers, configure PostgreSQL TLS and a verified certificate through the connection URL.
-
-`DATABASE_ADMIN_URL` is used only by the migration command. It does not need to be present in the running application environment. Never prefix database credentials or the session secret with `NEXT_PUBLIC_`.
+1. Create a Supabase project. No Supabase Auth settings need to be changed; Poker Planning manages participant sessions itself.
+2. Copy `.env.example` to `.env.local` and set the project URL and server-only service-role key. For deployment, also set `APP_SESSION_SECRET` to a random value with at least 32 characters. Never prefix either secret with `NEXT_PUBLIC_` or send it to browser code.
+3. Apply all SQL files in `supabase/migrations/` in filename order with the Supabase SQL editor, or install the Supabase CLI and run `supabase db push` for a linked project. The migrations add development/testing breakdowns and server-role-only RPC wrappers; existing saved totals are preserved as development estimates.
+4. For local Supabase, run `supabase start` and `supabase db reset`.
 
 ## Run locally
 
 ```sh
+npm install
 npm run dev
 ```
 
-Open http://localhost:3000. Create a room, share its invitation URL, and join from independent browser sessions. Participants can submit or update numeric and “Cannot estimate” votes until the host reveals. Revealed and completed rounds cannot be changed.
+Open http://localhost:3000. The host creates a room and shares the invitation URL; participants open it in separate browser sessions and choose display names.
 
-### Manual sandbox without PostgreSQL
+### Manual sandbox without Supabase
+
+To try the complete UI flow before configuring Supabase, run:
 
 ```sh
 npm run dev:local
 ```
 
-The `LOCAL SANDBOX` mode stores state in ignored `data/local-demo.json`. It supports the same workflow, but does not verify PostgreSQL permissions, RLS, or functions.
+Open http://localhost:3000 in three isolated browser profiles (for example, Chrome, Firefox, and a separate Chrome profile). In the first, create the room and a task. Copy the invitation URL into the other two, join with distinct names, submit decimal and “Cannot estimate” votes, then reveal, save separate development/testing estimates, and start another round. Open the previous task in history to inspect everyone's revealed votes and the dev/test/total breakdown. Reload all three pages to confirm state returns. The app shows a `LOCAL SANDBOX` label when this mode is active.
 
-## Moving existing Supabase data
-
-The standalone schema preserves the five application tables, UUIDs, invitation hashes, votes, and history. Historical migrations in `supabase/migrations/` remain unchanged for reference; do not apply them to standalone PostgreSQL.
-
-Stop writes to the old app during transfer. Initialize the new database using the steps above, then use PostgreSQL's `pg_dump` against the old database to export **data only** for `public.rooms`, `public.room_members`, `public.tasks`, `public.rounds`, and `public.votes`, with `--column-inserts --no-owner --no-privileges`. Restore as `poker_owner` using `psql --single-transaction --set ON_ERROR_STOP=1`. The room/task/round circular references are deferred until commit. Do not restore Supabase schemas, roles, or functions. Verify counts and history before switching traffic. Keep a backup and the old database until the transfer is verified.
-
-Retain `APP_SESSION_SECRET` and the app's hostname to preserve production browser sessions. Without the original signing secret, people can rejoin with an invitation but will receive new identities; host sessions will not automatically transfer. No server transfer has been performed by the repository changes.
+This mode stores state in ignored `data/local-demo.json` and uses signed HTTP-only cookies. It is intended for manual UI/workflow checks only; it does not exercise Supabase Postgres or RLS. Remove `data/` to clear local sandbox rooms. Use the regular Supabase setup above when verifying database security.
 
 ## Verification
 
@@ -68,21 +53,23 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-The acceptance test requires a migrated PostgreSQL database reachable by `DATABASE_URL` in `.env.local` (or the process environment), plus Chromium. It uses three independent sessions to verify private votes, changes between numeric and Cannot estimate votes, persistence after reload, host-only actions, rejection of changes after reveal, separate development/testing totals, and history. It fails if the configured database is unavailable. Running it against sandbox mode verifies only the sandbox.
+The Playwright acceptance test uses three isolated browser contexts for the host and two participants. It verifies pre-reveal vote responses contain only the sender's value, non-host attempts at host-only actions return HTTP 403, votes become visible after reveal, separate development/testing estimates sum correctly, the previous task exposes its estimates and votes, and sessions recover after reload. It requires the Supabase URL and service-role key above; no Supabase Auth setup is needed.
 
 ## Vote privacy model
 
-- The server verifies HMAC-signed HTTP-only session cookies and passes that identity to database function wrappers. Client-provided identities and roles are ignored.
-- All application tables retain RLS with no direct runtime table grants. Only the application role can execute the identity-taking wrappers. Internal helpers are not granted to it.
-- The membership-checked snapshot returns vote-status booleans and the caller's own selection before reveal. Other selections appear only after reveal.
-- Vote updates and host reveal lock the same room row, so the operations are serialized. Changes after reveal are rejected.
-- Session identity is transaction-local, preventing leakage across pooled connections. Browsers poll the authorized snapshot API.
-- Invitations contain a random 256-bit token; only a SHA-256 hash is stored.
+- Only server API routes use the Supabase service-role key. Browser code never receives it.
+- Every base table has RLS enabled and no table grants to browser roles. Votes cannot be fetched from PostgREST directly.
+- Browser sessions use random UUIDs in HMAC-signed, HTTP-only cookies. The server validates the cookie signature and supplies its user ID to RPC wrappers; the client cannot choose or alter that identity.
+- Room reads use the `get_room_snapshot` security-definer RPC, which verifies membership. Before reveal, it returns `has_voted` booleans and only the caller's own vote; vote values are included only after reveal.
+- RPC wrappers are executable only by `service_role`; they set the verified session identity for the existing role/membership checks. The browser never writes tables directly and cannot invoke these RPC wrappers with its anon key.
+- Production requires `APP_SESSION_SECRET` (at least 32 characters) and `SUPABASE_SERVICE_ROLE_KEY`; both remain server-only.
+- The app polls the authorized snapshot endpoint and does not subscribe to raw vote-table Realtime events.
+- Invitation URLs contain a random 256-bit join token; only its SHA-256 hash is stored in the database.
 
 ## Project documents
 
-- `SPEC.md`: behavior and acceptance criteria
-- `AGENTS.md`: coding and verification conventions
-- `PLAN.md`: implementation plan, not proof of verification
-- `db/migrations/`: standalone PostgreSQL schema and functions
-- `tests/e2e/three-session.spec.ts`: acceptance test
+- `AGENTS.md`: Codex project instructions, code map, security invariants, and verification commands
+- `SPEC.md`: product and security requirements
+- `PLAN.md`: staged implementation and verification plan
+- `supabase/migrations/`: versioned schema, RPCs, and grants
+- `tests/e2e/three-session.spec.ts`: independent-session acceptance test

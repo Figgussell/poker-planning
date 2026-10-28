@@ -24,14 +24,14 @@ Build a small, persistent planning-poker web application where a host creates a 
 
 ## Data and privacy requirements
 
-- Persist rooms, memberships, tasks, rounds, and votes in PostgreSQL.
+- Persist rooms, memberships, tasks, rounds, and votes in Supabase Postgres.
 - Persist development estimate, testing estimate, and their total for every completed round. Existing saved totals migrate to development with a testing estimate of zero.
 - Every room member can open a previous task and see each revealed round's participant votes, development estimate, testing estimate, and total.
-- Keep votes private before reveal at every boundary: server-rendered/API responses, event payloads, and direct database access through RLS.
+- Keep votes private before reveal at every boundary: server-rendered/API responses, Supabase Realtime payloads, and direct database access through RLS.
 - Before reveal, clients receive participant identity and a boolean `has_voted` status only. A participant's own vote may be returned only to that participant.
 - Reveal must be an atomic, host-authorized server operation. The server must not broadcast vote values before the round is marked revealed.
-- Use random application session IDs in HMAC-signed, HTTP-only cookies; external authentication services are not required.
-- Keep `DATABASE_URL` server-only. Database function wrappers are executable only by the restricted application role and enforce membership/host roles using the server-verified session identity.
+- Use random application session IDs in HMAC-signed, HTTP-only cookies; Supabase Auth and Anonymous Sign-Ins are not required.
+- Keep `SUPABASE_SERVICE_ROLE_KEY` server-only. Database RPC wrappers accept only requests made with that key and enforce membership/host roles using the server-verified session identity.
 - Invitation tokens are unguessable and grant room-join capability, not host permissions.
 
 ## User experience
@@ -43,25 +43,24 @@ Build a small, persistent planning-poker web application where a host creates a 
 
 ## Technical constraints
 
-- Next.js App Router, TypeScript, Tailwind CSS, and PostgreSQL.
+- Next.js App Router, TypeScript, Tailwind CSS, and Supabase.
 - Database schema and RLS policies are versioned as SQL migrations.
 - Configuration is documented in `.env.example`; local setup and verification are documented in `README.md`.
-- Never expose the PostgreSQL connection string or session-signing secret to browser code.
+- Never expose the Supabase service-role key or session-signing secret to browser code.
 
 ## Acceptance criteria
 
 - Host can create a room, add a task, reveal votes, save separate development/testing estimates and their total, and start a new round.
 - All room members can inspect previously completed tasks, including round votes and the saved development/testing/total breakdown.
 - Two participants can join the same room and vote independently, including decimal or “Cannot estimate” votes.
-- Participants can update their selection before reveal, including switching to and from “Cannot estimate”; updates after reveal are rejected.
 - Three independent browser sessions can participate concurrently as host and two participants.
-- Before reveal, a participant's network-visible API data contains no other participant's vote value, including for requests crafted outside the UI.
-- Reloading a room restores membership, current task, vote status, revealed result, and saved history from PostgreSQL.
+- Before reveal, a participant's network-visible API and Realtime data contains no other participant's vote value, including for requests crafted outside the UI.
+- Reloading a room restores membership, current task, vote status, revealed result, and saved history from Supabase.
 - Non-host attempts to add tasks, reveal, save results, or start rounds are rejected by server authorization and database policy.
 
 ## Verification approach
 
 - Typecheck, lint, and production build the application.
-- Apply all SQL migrations to a PostgreSQL database and verify RPC authorization using distinct signed application sessions.
+- Apply all SQL migrations to a Supabase project and verify RPC authorization using distinct signed application sessions.
 - Run a browser test in three independent contexts: host, participant A, and participant B. Inspect network responses before reveal, exercise voting and reveal, reload each context, and confirm unauthorized host actions fail.
-- If PostgreSQL connection settings are unavailable, keep the integration runnable and report the live database/browser acceptance checks as environment-blocked rather than claiming they passed.
+- If Supabase credentials are unavailable, keep the integration runnable and report the live database/browser acceptance checks as environment-blocked rather than claiming they passed.
